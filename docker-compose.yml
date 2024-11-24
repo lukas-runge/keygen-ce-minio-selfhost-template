@@ -1,0 +1,107 @@
+services:
+  setup:
+    container_name: keygen_setup
+    profiles: [ "setup" ]
+    build: ./src
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+      DISABLE_DATABASE_ENVIRONMENT_CHECK: 1
+    env_file:
+      - .env
+    networks:
+      - backend
+    command: >
+      sh -c "
+        until pg_isready -h postgres -U ${POSTGRES_USER}; do
+          echo 'Waiting for PostgreSQL...'
+          sleep 1
+        done
+        bundle exec rails keygen:setup
+      "
+    depends_on: [ postgres ]
+    tty: true
+    stdin_open: true
+
+  postgres:
+    container_name: keygen_postgres
+    image: postgres:9.6
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+  redis:
+    container_name: keygen_redis
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    volumes:
+      - ./data/redis:/data
+
+  storage:
+    container_name: keygen_storage
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    volumes:
+      - ./data/minio:/data
+    networks:
+      - web
+      - backend
+    ports:
+      - ${MINIO_API_PORT}:9000
+      - ${MINIO_CONSOLE_PORT}:9001
+    command: server --console-address ":${MINIO_CONSOLE_PORT}" /data
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    container_name: keygen_web
+    build: ./src
+    networks:
+      - backend
+      - web
+    ports:
+      - ${PORT}:3000
+    command: "web"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - ./data/keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    container_name: keygen_worker
+    build: ./src
+    command: "worker"
+    env_file:
+      - .env
+    networks:
+      - backend
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+    volumes:
+      - ./data/keygen:/etc/keygen
+    depends_on:
+      - postgres
+      - redis
+
+networks:
+  web:
+    external: true
+  backend:
+    external: false
