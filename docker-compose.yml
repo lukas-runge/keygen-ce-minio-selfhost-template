@@ -1,7 +1,7 @@
 services:
   setup:
     container_name: keygen_setup
-    restart: always
+    restart: unless-stopped
     profiles: [ "setup" ]
     build: ./src
     environment:
@@ -25,7 +25,7 @@ services:
 
   postgres:
     container_name: keygen_postgres
-    restart: always
+    restart: unless-stopped
     image: postgres:9.6
     ports:
       - "5432:5432"
@@ -40,7 +40,7 @@ services:
 
   redis:
     container_name: keygen_redis
-    restart: always
+    restart: unless-stopped
     image: redis
     ports:
       - "6379:6379"
@@ -51,7 +51,7 @@ services:
 
   storage:
     container_name: keygen_storage
-    restart: always
+    restart: unless-stopped
     image: minio/minio:RELEASE.2024-11-07T00-52-20Z
     volumes:
       - ./data/minio:/data
@@ -71,7 +71,7 @@ services:
 
   web:
     container_name: keygen_web
-    restart: always
+    restart: unless-stopped
     build: ./src
     networks:
       - backend
@@ -91,7 +91,7 @@ services:
 
   worker:
     container_name: keygen_worker
-    restart: always
+    restart: unless-stopped
     build: ./src
     command: "worker"
     env_file:
