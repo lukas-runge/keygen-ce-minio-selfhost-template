@@ -27,8 +27,6 @@ services:
     container_name: keygen_postgres
     restart: unless-stopped
     image: postgres:9.6
-    ports:
-      - "5432:5432"
     networks:
       - backend
     environment:
@@ -42,8 +40,6 @@ services:
     container_name: keygen_redis
     restart: unless-stopped
     image: redis
-    ports:
-      - "6379:6379"
     networks:
       - backend
     volumes:
